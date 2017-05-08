@@ -4,33 +4,62 @@ services:
     db:
         image: mysql
         volumes:
-            - "./var/db:/var/lib/mysql"
+            - /var/db/data:/var/lib/mysql
         environment:
-            MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-            MYSQL_DATABASE: ${MYSQL_DATABASE}
-            MYSQL_USER: ${MYSQL_USER}
-            MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+            MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+            MYSQL_DATABASE:      ${DB_DATABASE}
+            MYSQL_USER:          ${DB_USER}
+            MYSQL_PASSWORD:      ${DB_PASSWORD}
         ports:
-          - 33066:3306
+            - 33066:${DB_PORT}
     php:
         build: ./docker/php7-fpm
+        environment:
+            SYMFONY_DEFAULT_LOCALE: ${SYMFONY_DEFAULT_LOCALE}
+            DB_DRIVER:              ${DB_DRIVER}
+            DB_HOST:                ${DB_HOST}
+            DB_PORT:                ${DB_PORT}
+            DB_DATABASE:            ${DB_DATABASE}
+            DB_USER:                ${DB_USER}
+            DB_PASSWORD:            ${DB_PASSWORD}
+            MAILER_TRANSPORT:       ${MAILER_TRANSPORT}
+            MAILER_HOST:            ${MAILER_HOST}
+            MAILER_PORT:            ${MAILER_PORT}
+            MAILER_USER:            ${MAILER_USER}
+            MAILER_PASSWORD:        ${MAILER_PASSWORD}
         volumes:
             - ${SYMFONY_APP_PATH}:/var/www/symfony
     nginx:
         build: ./docker/nginx
+        environment:
+            VIRTUAL_HOST: symfony.docker
         ports:
             - 80:80
+            - 443:443
         volumes_from:
             - php
         volumes:
+            - ./docker/nginx/ssl/certs:/etc/nginx/certs:ro
             - ./var/logs/nginx/:/var/log/nginx
-    elk:
-        image: willdurand/elk
+    maildev:
+        image: djfarrelly/maildev
         ports:
-            - 81:80
-        volumes:
-            - ./docker/elk/logstash:/etc/logstash
-            - ./docker/elk/logstash/patterns:/opt/logstash/patterns
-        volumes_from:
-            - php
-            - nginx
+            - 1080:80
+            - ${MAILER_PORT}:1025
+    # I recommend to connect via software in port 33066
+    #adminer:
+    #    image: dehy/adminer
+    #    ports:
+    #        - 1081:80
+    #    links:
+    #        - db
+    #elk:
+    #    image: willdurand/elk
+    #    ports:
+    #        - 81:80
+    #    volumes:
+    #        - ./docker/elk/logstash:/etc/logstash
+    #        - ./docker/elk/logstash/patterns:/opt/logstash/patterns
+    #    volumes_from:
+    #        - php
+    #        - nginx
