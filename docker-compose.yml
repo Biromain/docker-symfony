@@ -95,8 +95,7 @@ services:
             - web
         volumes:
             - ./docker/nginx/certs:/etc/nginx/certs:ro
-            #- /var/run/docker.sock:/tmp/docker.sock:ro
-            - //var/run/docker.sock:/tmp/docker.sock:ro
+            - /var/run/docker.sock:/tmp/docker.sock:ro # Double first slash for windows //var/...
 
 networks:
     web:
