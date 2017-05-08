@@ -1,19 +1,24 @@
 version: '2'
 
 services:
-    db:
-        image: mysql
+
+    web:
+        build: .docker/apache
+        networks:
+            - default
+            - web
+        volumes_from:
+            - php
         volumes:
-            - /var/db/data:/var/lib/mysql
+            - ./logs:/var/log/apache2
         environment:
-            MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
-            MYSQL_DATABASE:      ${DB_DATABASE}
-            MYSQL_USER:          ${DB_USER}
-            MYSQL_PASSWORD:      ${DB_PASSWORD}
-        ports:
-            - 33066:${DB_PORT}
+            VIRTUAL_HOST: 'symfony.${DEV_DOMAIN}'
+            HTTPS_METHOD: ~
+            CERT_NAME: ~
+    # End web
+
     php:
-        build: ./docker/php7-fpm
+        build: ./.docker/php7-fpm
         environment:
             SYMFONY_DEFAULT_LOCALE: ${SYMFONY_DEFAULT_LOCALE}
             DB_DRIVER:              ${DB_DRIVER}
@@ -27,39 +32,80 @@ services:
             MAILER_PORT:            ${MAILER_PORT}
             MAILER_USER:            ${MAILER_USER}
             MAILER_PASSWORD:        ${MAILER_PASSWORD}
+        networks:
+            - default
+            - database
+            - maildev
         volumes:
-            - ${SYMFONY_APP_PATH}:/var/www/symfony
-    nginx:
-        build: ./docker/nginx
-        environment:
-            VIRTUAL_HOST: symfony.docker
+            - ${SYMFONY_APP_PATH}:/var/www/html
+    # End php
+
+    db:
+        image: mysql
         ports:
-            - 80:80
-            - 443:443
-        volumes_from:
-            - php
+            - 33066:3306
+        networks:
+            - database
         volumes:
-            - ./docker/nginx/ssl/certs:/etc/nginx/certs:ro
-            - ./var/logs/nginx/:/var/log/nginx
+            - db_data:/var/lib/mysql
+        environment:
+            MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+            MYSQL_DATABASE:      ${DB_DATABASE}
+            MYSQL_USER:          ${DB_USER}
+            MYSQL_PASSWORD:      ${DB_PASSWORD}
+    #End db
+
+    #redis:
+    #    image: redis:alpine
+    #    ports:
+    #        - 6379:63799
+    # End redis
+
+    #
+    # Utils
+    #
     maildev:
         image: djfarrelly/maildev
         ports:
             - 1080:80
-            - ${MAILER_PORT}:1025
-    # I recommend to connect via software in port 33066
-    #adminer:
-    #    image: dehy/adminer
-    #    ports:
-    #        - 1081:80
-    #    links:
-    #        - db
-    #elk:
-    #    image: willdurand/elk
-    #    ports:
-    #        - 81:80
-    #    volumes:
-    #        - ./docker/elk/logstash:/etc/logstash
-    #        - ./docker/elk/logstash/patterns:/opt/logstash/patterns
-    #    volumes_from:
-    #        - php
-    #        - nginx
+            #SMTP Port on 1025
+        environment:
+            VIRTUAL_HOST: maildev.${DEV_DOMAIN}
+
+    # Little PMA in one file
+    # But i recommend to connect directly to db via software db:mysql:33066
+    adminer:
+        image: dehy/adminer
+        ports:
+            - 1081:80
+        environment:
+            VIRTUAL_HOST: adminer.${DEV_DOMAIN}
+        networks:
+            - web
+            - database
+
+    # NGINX PRoxy for virtual hosts
+    nginx-proxy:
+        image: jwilder/nginx-proxy
+        ports:
+            - 80:80
+            - 443:443
+        networks:
+            - default
+            - web
+        volumes:
+            - ./docker/nginx/certs:/etc/nginx/certs:ro
+            #- /var/run/docker.sock:/tmp/docker.sock:ro
+            - //var/run/docker.sock:/tmp/docker.sock:ro
+
+networks:
+    web:
+        driver: bridge
+    maildev:
+        driver: bridge
+    database:
+        driver: bridge
+
+volumes:
+    db_data:
+        driver: local
