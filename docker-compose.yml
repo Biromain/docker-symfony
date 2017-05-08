@@ -64,11 +64,8 @@ services:
     #
     # Utils
     #
-    maildev:
+    maildev: #SMTP Port on 1025
         image: djfarrelly/maildev
-        ports:
-            - 1080:80
-            #SMTP Port on 1025
         environment:
             VIRTUAL_HOST: maildev.${DEV_DOMAIN}
 
@@ -76,8 +73,6 @@ services:
     # But i recommend to connect directly to db via software db:mysql:33066
     adminer:
         image: dehy/adminer
-        ports:
-            - 1081:80
         environment:
             VIRTUAL_HOST: adminer.${DEV_DOMAIN}
         networks:
